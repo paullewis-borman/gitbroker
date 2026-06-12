@@ -134,11 +134,14 @@ function doPublish(repo, name, body) {
     }
   }
 
-  // 2. stage
-  for (const ps of pathspec) if (ps !== '-A' && ps !== '.' && !insideRepo(repo, ps)) {
+  // 2. stage (drop any paths we just rm'd — git rm already staged those, and
+  //    re-adding a now-deleted path would error harmlessly but noisily)
+  const rmSet = new Set(rm);
+  const addSpec = pathspec.filter((ps) => !rmSet.has(ps));
+  for (const ps of addSpec) if (ps !== '-A' && ps !== '.' && !insideRepo(repo, ps)) {
     steps.push({ step: 'add', target: ps, ok: false, err: 'escapes repo — refused' }); return { ok: false, project: name, steps };
   }
-  steps.push({ step: 'add', ...git(repo, ['add', ...pathspec]) });
+  if (addSpec.length) steps.push({ step: 'add', ...git(repo, ['add', ...addSpec]) });
 
   // 3. anything staged?
   if (git(repo, ['diff', '--cached', '--quiet']).ok && !allowEmpty)
@@ -153,10 +156,17 @@ function doPublish(repo, name, body) {
   return { ok: true, project: name, committed: true, sha: git(repo, ['rev-parse', 'HEAD']).out, steps };
 }
 
+// --- audit log: one line per request to stdout (launchd routes it to the log) ---
+const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
+
 // --- HTTP server -------------------------------------------------------------
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const reply = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj, null, 2)); };
+  const reply = (code, obj) => {
+    log(`${req.method} ${url.pathname} -> ${code} from=${req.socket.remoteAddress}`);   // timestamped access line for EVERY request
+    res.writeHead(code, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(obj, null, 2));
+  };
 
   // Unauthenticated: liveness + project COUNT only (never names/paths/secrets).
   if (req.method === 'GET' && url.pathname === '/health') {
@@ -167,14 +177,20 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/publish') {
     if (req.method !== 'POST') return reply(405, { ok: false, error: 'use POST' });
     const who = resolveBySecret(req.headers['x-broker-secret']);
-    if (!who) return reply(401, { ok: false, error: 'unknown or missing x-broker-secret' });
+    if (!who) return reply(401, { ok: false, error: 'unknown or missing x-broker-secret' });   // access line logs the 401
     let raw = '';
     req.on('data', (c) => { raw += c; if (raw.length > 1e6) req.destroy(); });
     req.on('end', () => {
-      let body; try { body = raw ? JSON.parse(raw) : {}; } catch { return reply(400, { ok: false, error: 'invalid JSON body' }); }
+      let body; try { body = raw ? JSON.parse(raw) : {}; } catch { log(`publish project=${who.name} BADREQUEST invalid JSON`); return reply(400, { ok: false, error: 'invalid JSON body' }); }
+      const add = (Array.isArray(body.pathspec) && body.pathspec.length ? body.pathspec.length : 1);
+      const rm = (Array.isArray(body.rm) ? body.rm.length : 0);
       withRepoLock(who.repo, () => doPublish(who.repo, who.name, body))
-        .then((result) => reply(result.ok ? 200 : 409, result))
-        .catch((e) => reply(500, { ok: false, error: String(e && e.message || e) }));
+        .then((result) => {
+          const s = result.ok ? (result.committed ? `OK committed ${result.sha}` : 'OK no-op (nothing to commit)') : `FAIL ${result.reason || result.error || 'error'}`;
+          log(`publish project=${who.name} ${s} add=${add} rm=${rm} from=${req.socket.remoteAddress}`);
+          reply(result.ok ? 200 : 409, result);
+        })
+        .catch((e) => { log(`publish project=${who.name} ERROR ${e && e.message || e}`); reply(500, { ok: false, error: String(e && e.message || e) }); });
     });
     return;
   }
@@ -182,10 +198,9 @@ const server = http.createServer((req, res) => {
   reply(404, { ok: false, error: 'not found', endpoints: ['GET /health', 'POST /publish'] });
 });
 
-server.on('error', (e) => { console.error('gitbroker error:', e.message); process.exit(1); });
+server.on('error', (e) => { log(`gitbroker FATAL ${e.message}`); process.exit(1); });
 server.listen(PORT, HOST, () => {
   let count = '?'; try { count = loadRegistry().length; } catch (e) { count = `!! registry unreadable: ${e.message}`; }
-  console.log(`gitbroker listening on http://${HOST}:${PORT}`);
-  console.log(`  registry: ${REGISTRY_PATH}  (projects: ${count})`);
-  console.log(`  routes:   GET /health  |  POST /publish  { message, pathspec?, rm?, allowEmpty?, project? }   (header: x-broker-secret)`);
+  log(`gitbroker listening on http://${HOST}:${PORT}  registry=${REGISTRY_PATH} projects=${count}`);
+  log(`routes: GET /health | POST /publish { message, pathspec?, rm?, allowEmpty?, project? }  (header: x-broker-secret)`);
 });

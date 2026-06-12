@@ -146,10 +146,20 @@ location, then:
 
 ```bash
 cp com.gitbroker.broker.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.gitbroker.broker.plist
-launchctl start com.gitbroker.broker
-launchctl list | grep gitbroker     # confirm it's up
-tail -f broker.log                  # watch logs
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gitbroker.broker.plist
+launchctl print gui/$(id -u)/com.gitbroker.broker | head   # confirm it's up
+tail -f ~/Library/Logs/gitbroker.log                        # watch logs
+```
+
+Manage it (modern `launchctl`; the old `load`/`start`/`stop` verbs are deprecated):
+
+```bash
+# restart in place (after editing broker.mjs or the registry):
+launchctl kickstart -k gui/$(id -u)/com.gitbroker.broker
+# stop + unload:
+launchctl bootout gui/$(id -u)/com.gitbroker.broker
+# start again after a bootout:
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gitbroker.broker.plist
 ```
 
 The broker has the **same liveness as the agent**: both only run when your Mac
@@ -257,6 +267,41 @@ stops working immediately on the next request.
 | `GITBROKER_HOST` | `0.0.0.0` | listen interface (must be sandbox-reachable) |
 
 ---
+
+## Logs
+
+The broker writes **one audit line per request** to stdout. Under the `launchd`
+agent that's routed to `~/Library/Logs/gitbroker.log` (the agent's
+`StandardOutPath`/`StandardErrorPath`). Run in the foreground and it prints to
+the terminal instead.
+
+```
+[2026-06-12T16:50:00.000Z] gitbroker listening on http://0.0.0.0:4747  registry=/Users/you/.config/gitbroker/registry.json projects=2
+[2026-06-12T16:50:00.001Z] routes: GET /health | POST /publish { … }  (header: x-broker-secret)
+[2026-06-12T16:51:29.900Z] GET /health -> 200 from=172.16.10.3
+[2026-06-12T16:51:30.001Z] POST /publish -> 200 from=172.16.10.3
+[2026-06-12T16:51:30.001Z] publish project=projectA OK committed a1e015a add=1 rm=0 from=172.16.10.3
+[2026-06-12T17:01:10.220Z] POST /publish -> 401 from=172.16.10.9
+[2026-06-12T17:02:00.450Z] POST /publish -> 409 from=172.16.10.3
+[2026-06-12T17:02:00.456Z] publish project=projectA FAIL diverged-from-origin add=1 rm=0 from=172.16.10.3
+```
+
+Every line is timestamped (ISO-8601 UTC), including startup and fatal errors.
+
+Every request produces a timestamped **access line** — `METHOD path -> status
+from=ip` — so health checks, unknown routes, and rejected-auth attempts (`POST
+/publish -> 401`) are all captured. A successful or failed `/publish` adds a
+**detail line** with the project the secret resolved to, the outcome (`OK
+committed <sha>`, `OK no-op`, or `FAIL <reason>`), and the add/rm counts. Secrets
+are never logged.
+
+What's *not* in the log: the individual git sub-commands — those are returned in
+the HTTP response's `steps[]` array for the caller to inspect. Want full
+git-command tracing in the file too? It's a small change — ask.
+
+```bash
+tail -f ~/Library/Logs/gitbroker.log
+```
 
 ## Limitations / roadmap
 

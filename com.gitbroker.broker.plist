@@ -1,33 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  launchd agent for gitbroker. Keeps the native git push service running
-  whenever you are logged in, so any project's sandbox can reach it.
+  launchd agent for gitbroker.
 
-  EDIT the two absolute paths below to where you cloned gitbroker, then:
+  IMPORTANT macOS notes (Launch Agents are NOT like your Terminal):
+   1. PATH: launchd has a minimal PATH and won't find nvm/Homebrew `node` or
+      `git`. So we call node by ABSOLUTE path and set PATH explicitly below.
+      Find your node path:  readlink -f "$(which node)"
+      Put it in ProgramArguments[0], and make sure its directory + git's
+      directory are in the PATH string under EnvironmentVariables.
+   2. Full Disk Access: the broker runs git inside ~/Documents/... which macOS
+      protects under TCC. The agent will get "Operation not permitted" until you
+      grant Full Disk Access to the node binary:
+        System Settings -> Privacy & Security -> Full Disk Access -> + -> add node
+   3. Logs go to ~/Library/Logs (always writable), NOT into the protected repo.
+
+  Install / reload:
     cp com.gitbroker.broker.plist ~/Library/LaunchAgents/
-    launchctl load ~/Library/LaunchAgents/com.gitbroker.broker.plist
-    launchctl start com.gitbroker.broker
-  Check:  launchctl list | grep gitbroker   ;   tail -f broker.log
-  Stop:   launchctl unload ~/Library/LaunchAgents/com.gitbroker.broker.plist
-
-  Uses `bash -lc` so node resolves from your login PATH (nvm/homebrew). Reads
-  the secret->directory registry from ~/.config/gitbroker/registry.json.
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gitbroker.broker.plist
+  Reload after edits:
+    launchctl bootout gui/$(id -u)/com.gitbroker.broker 2>/dev/null
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gitbroker.broker.plist
+  Check:  launchctl print gui/$(id -u)/com.gitbroker.broker | head
+          tail -f ~/Library/Logs/gitbroker.log
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.gitbroker.broker</string>
 
+    <!-- ProgramArguments[0] MUST be your absolute node path (readlink -f $(which node)). -->
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>-lc</string>
-        <string>cd "/Users/plb/Documents/NewRepo/gitbroker" &amp;&amp; exec node broker.mjs</string>
+        <string>/opt/homebrew/Cellar/node/23.3.0/bin/node</string>
+        <string>/Users/plb/Documents/NewRepo/gitbroker/broker.mjs</string>
     </array>
 
-    <key>WorkingDirectory</key>
-    <string>/Users/plb/Documents/NewRepo/gitbroker</string>
+    <!-- Explicit PATH so the broker's `git` subprocess resolves. Add your node
+         dir if it isn't already one of these (e.g. an nvm path). -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
 
     <key>RunAtLoad</key>
     <true/>
@@ -36,9 +51,10 @@
     <key>ThrottleInterval</key>
     <integer>5</integer>
 
+    <!-- Logs OUTSIDE the TCC-protected repo. -->
     <key>StandardOutPath</key>
-    <string>/Users/plb/Documents/NewRepo/gitbroker/broker.log</string>
+    <string>/Users/plb/Library/Logs/gitbroker.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/plb/Documents/NewRepo/gitbroker/broker.log</string>
+    <string>/Users/plb/Library/Logs/gitbroker.log</string>
 </dict>
 </plist>
