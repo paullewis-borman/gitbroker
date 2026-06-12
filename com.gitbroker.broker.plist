@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent for gitbroker. Keeps the native git push service running
+  whenever you are logged in, so any project's sandbox can reach it.
+
+  EDIT the two absolute paths below to where you cloned gitbroker, then:
+    cp com.gitbroker.broker.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.gitbroker.broker.plist
+    launchctl start com.gitbroker.broker
+  Check:  launchctl list | grep gitbroker   ;   tail -f broker.log
+  Stop:   launchctl unload ~/Library/LaunchAgents/com.gitbroker.broker.plist
+
+  Uses `bash -lc` so node resolves from your login PATH (nvm/homebrew). Reads
+  the secret->directory registry from ~/.config/gitbroker/registry.json.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gitbroker.broker</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd "/Users/plb/Documents/NewRepo/gitbroker" &amp;&amp; exec node broker.mjs</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/plb/Documents/NewRepo/gitbroker</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/plb/Documents/NewRepo/gitbroker/broker.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/plb/Documents/NewRepo/gitbroker/broker.log</string>
+</dict>
+</plist>

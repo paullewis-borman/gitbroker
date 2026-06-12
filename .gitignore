@@ -1,0 +1,15 @@
+# The registry holds every secret + path — it lives in ~/.config/gitbroker/,
+# NEVER in the repo. Ignore any stray local copy just in case.
+registry.json
+
+# Logs (e.g. broker.log from the launchd agent)
+*.log
+
+# Local env / secrets
+.env
+
+# Node
+node_modules/
+
+# Obsidian settings
+.obsidian/

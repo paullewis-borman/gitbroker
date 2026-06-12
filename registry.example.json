@@ -1,0 +1,12 @@
+[
+  {
+    "name": "projectA",
+    "path": "/Users/you/Documents/projectA",
+    "secret": "GENERATE_PER_PROJECT__openssl_rand_-hex_32"
+  },
+  {
+    "name": "projectB",
+    "path": "/Users/you/Documents/projectB",
+    "secret": "A_DIFFERENT_SECRET_PER_PROJECT__openssl_rand_-hex_32"
+  }
+]
