@@ -48,6 +48,52 @@ credentials (ssh/keychain) already work. The agent just makes an HTTP call.
 
 ---
 
+## A real deployment (and its implications)
+
+This isn't hypothetical — one broker on a single Mac, under `launchd`, currently
+serves two registered projects:
+
+- **A website with unattended Cowork tasks** ([schvitz.co](https://www.schvitz.co)).
+  A Claude Cowork agent runs scheduled tasks against it: a **daily** job that
+  writes an AI-insights article, generates an image, and pushes
+  `articles.json` + the image; a **weekly** cleanup that *deletes* orphaned
+  images and trims the article list; and a Telegram bridge. These are precisely
+  the workloads that break on a bindfs mount — **unattended pushes** and
+  **unattended deletes** — and they're exactly what the broker makes reliable.
+  The task just calls `POST /publish` (via a thin `broker-publish.mjs` wrapper)
+  with that project's secret; Heroku auto-deploys from the resulting `main`.
+
+- **gitbroker itself.** The broker is registered as one of its *own* projects,
+  so a Cowork agent can edit the broker's source and docs (this README included)
+  and push them **through the running broker** — the tool maintains its own repo
+  using itself.
+
+### Implications of self-hosting
+
+- **The live process is insulated from its own pushes.** Publishing a new
+  `broker.mjs` commits and pushes the file but does **not** reload the running
+  service — the change only takes effect on the next
+  `launchctl kickstart -k …`. So a self-edit can't crash the broker
+  mid-publish, but you must restart to pick up real fixes, and a broken commit
+  only surfaces on restart. Treat broker self-edits with care and keep a
+  known-good commit to roll back to.
+- **No new blast radius.** gitbroker's secret lives in gitbroker's own `.env`,
+  distinct from every other project's. Registering the broker with itself adds
+  **zero** cross-project exposure — the secret-as-capability model holds exactly
+  as before.
+- **Self-pushes are still divergence-safe.** A push to the broker's own repo
+  goes through the same `merge --ff-only`, so an agent can't clobber hand-made
+  local commits to the broker.
+- **One broker, many repos, one mutex each.** Different projects publish
+  concurrently; the per-repo mutex still serializes writes within each — so the
+  broker editing itself can't collide with a separate task editing the website.
+
+> The takeaway: once the broker is running, *anything an agent can reach it for*
+> — including the broker's own maintenance — happens with the same native git,
+> the same per-project isolation, and the same safety rails.
+
+---
+
 ## Security model — the secret *is* the capability
 
 gitbroker never accepts a path or a project name from the caller as the thing
