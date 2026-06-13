@@ -8,6 +8,9 @@ registry.json
 # Local env / secrets
 .env
 
+# Local broker-host cache written by broker-publish.mjs
+.broker-host
+
 # Node
 node_modules/
 
