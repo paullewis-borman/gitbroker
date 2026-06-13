@@ -154,12 +154,11 @@ project, run it under its own separate broker instead of sharing this one.
 ## Point an AI agent at this repo (which scenario?)
 
 You don't have to wire a new project in by hand. Open that project in Cowork (or
-any agent that can read a repo) and tell it, in one line:
+any agent that can read a repo) and paste it this prompt:
 
-> "Use gitbroker from https://github.com/paullewis-borman/gitbroker — read its
-> `README.md` and `AGENTS.md`, work out whether the broker is already installed
-> on this machine or this is a fresh install, and set this project up
-> accordingly."
+```text
+Use gitbroker from https://github.com/paullewis-borman/gitbroker — read its README.md and AGENTS.md, work out whether the broker is already installed on this machine or this is a fresh install, and set this project up accordingly.
+```
 
 The agent self-detects one of two scenarios (`AGENTS.md` carries the detection
 recipe):
