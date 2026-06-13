@@ -12,6 +12,44 @@ A native git push service on the operator's host. You (an agent in a sandbox)
 runs `git add` / `commit` / `push` (and `git rm`) in the real working copy with
 the operator's own credentials.
 
+## First: which scenario are you in? (setup vs. just publishing)
+
+If this project is **already wired to the broker** — its gitignored `.env` has a
+`BROKER_SECRET` and `broker-publish.mjs` is present — it's set up; skip to *How
+to publish*. Otherwise you're wiring it in, and there are two cases. Detect which
+**before** you clone or install anything:
+
+**Scenario A — the broker is already installed on this machine.** The common
+case: you're adding a 2nd/3rd project to a broker that already serves others.
+One broker is *designed* to serve many repos, so there is **nothing to install**.
+Signals, cheapest first:
+- A `GET /health` probe (or `node broker-publish.mjs --message probe
+  --allow-empty` once a secret exists) answers `{ok:true}` → a broker is live on
+  this host.
+- The operator says "the broker's already running", or a sibling project already
+  publishes through it.
+- *(host-side, if you can see it)* `~/.config/gitbroker/registry.json` exists.
+
+→ Adding this project is three small steps — two are **host-side** and need the
+operator, because the sandbox can't reach `~/.config` or `launchd`:
+  1. *(operator, host)* `openssl rand -hex 32` → append
+     `{ "name": "<proj>", "path": "<abs host path>", "secret": "<new>" }` to
+     `~/.config/gitbroker/registry.json`. **No broker restart** — the registry is
+     re-read on every request.
+  2. Put that same secret in **this** project's gitignored `.env` as
+     `BROKER_SECRET=…`.
+  3. Copy `broker-publish.mjs` into this repo (adjust its repo-root constant if
+     you place it in a subfolder).
+
+**Scenario B — fresh install on this machine.** Nothing answers `/health`, no
+registry exists, and the Mac is awake. → Walk the operator through the README's
+*Install* section first (clone, create registry, launchd), then do Scenario-A
+steps 2–3 to wire in this project.
+
+> If `/health` is silent you cannot tell "not installed" from "Mac asleep / not
+> logged in". **Ask the operator which it is** — don't assume a fresh install and
+> re-clone over a perfectly good one.
+
 ## How to publish
 
 You have two equivalent options. Prefer the helper if it's present in the repo.

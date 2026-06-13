@@ -151,6 +151,33 @@ project, run it under its own separate broker instead of sharing this one.
 
 ---
 
+## Point an AI agent at this repo (which scenario?)
+
+You don't have to wire a new project in by hand. Open that project in Cowork (or
+any agent that can read a repo) and tell it, in one line:
+
+> "Use gitbroker from https://github.com/paullewis-borman/gitbroker — read its
+> `README.md` and `AGENTS.md`, work out whether the broker is already installed
+> on this machine or this is a fresh install, and set this project up
+> accordingly."
+
+The agent self-detects one of two scenarios (`AGENTS.md` carries the detection
+recipe):
+
+- **Already installed on this Mac** — the common case once you've used the
+  broker for one project. It already runs under `launchd` and serves other repos,
+  so adding this one is tiny: generate a secret, add **one** registry line
+  (host-side — see *Adding a project*), drop that secret in the new project's
+  `.env`, and the agent copies in `broker-publish.mjs`. **No second broker, no
+  re-clone, no restart.**
+- **Fresh install** — first time on this machine. The agent walks you through
+  *Install* below (clone, registry, launchd) once, then wires the project in.
+
+The registry edit and any `launchctl` step run on the **host** — the agent's
+sandbox can't reach `~/.config` or `launchd`, so it will hand you those exact
+commands to run. (If the Mac is asleep the agent can't probe `/health`, so it
+should *ask* which scenario you're in rather than assume a fresh install.)
+
 ## Install
 
 Requires Node 18+. Clone anywhere on the host (it runs on the host, not in any
