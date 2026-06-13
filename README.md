@@ -288,6 +288,52 @@ curl -s -X POST http://172.16.10.254:4747/publish \
 
 ---
 
+## Client helper — `broker-publish.mjs`
+
+You don't have to hand-write the `/publish` call in every project. This repo
+ships **`broker-publish.mjs`**, a small zero-dependency Node wrapper (Node 18+,
+uses global `fetch`/`http`) that a project's agent calls to publish itself. It's
+the reference client — the [schvitz.co](https://www.schvitz.co) scheduled tasks
+use a copy of it.
+
+What it does: reads `BROKER_SECRET` from the project's gitignored `.env`, finds
+the broker (probing the host and **caching the working URL in `.broker-host`**
+so later runs are instant), POSTs `/publish`, and exits with a meaningful code.
+The secret is never printed.
+
+```bash
+node broker-publish.mjs \
+  --message "AI Insights: <title>" \
+  --add data/articles.json \
+  --add public/images/foo.webp \
+  --rm  public/images/old.webp        # repeat --rm per file; omit if none
+# also: --allow-empty   --url http://host:port (override the cached/probed URL)
+```
+
+| exit | meaning |
+| --- | --- |
+| `0` | published **or** nothing to commit |
+| `1` | broker reported a failure (e.g. diverged) — caller should stop |
+| `2` | could not reach the broker (host asleep/offline) |
+| `3` | bad usage or no `BROKER_SECRET` in `.env` |
+
+**To wire it into a new project:** copy `broker-publish.mjs` into the project,
+register the project in the broker registry, and put that project's
+`BROKER_SECRET` in its `.env` (see *Adding a project* below). By convention the
+helper resolves the repo root two levels up from its own location
+(`<repo>/backend/scripts/broker-publish.mjs`); adjust that path constant if you
+place it elsewhere.
+
+> **Note on `AGENTS.md`.** This repo also ships an **`AGENTS.md`** — a short,
+> imperative publish contract written for an *AI agent* (how to call the helper,
+> what the exit codes mean, and the hard rules: never run native git on the
+> mount, stop on any non-zero exit, never expose the secret). The README you're
+> reading is for *humans*; `AGENTS.md` is for the agent. **What to do with it:**
+> when you copy `broker-publish.mjs` into a new project, copy `AGENTS.md`
+> alongside it (or fold its rules into that project's own `CLAUDE.md` /
+> agent-rules file) so the project's agent reads the publish contract before it
+> ever touches git. Many agent tools auto-discover a top-level `AGENTS.md`.
+
 ## Adding a project
 
 1. `openssl rand -hex 32` → a new secret.
