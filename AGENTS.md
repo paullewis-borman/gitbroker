@@ -1,5 +1,7 @@
 # AGENTS.md — gitbroker
 
+**📍 This is the `gitbroker` repo's AGENTS.md** — read it when publishing a repo *through* gitbroker. Not to be confused with `cowork_telegram/AGENTS.md` (the Telegram bridge).
+
 > Operating contract for an AI agent that publishes a repo through **gitbroker**.
 > Humans should read `README.md` instead — it explains how the broker works,
 > how to install it, and the full security model. This file is the short,

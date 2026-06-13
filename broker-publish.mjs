@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));   // fileURLToPath decodes %20 etc. (e.g. "Schvitz Website")
-const REPO = path.resolve(SCRIPT_DIR, '..', '..');           // backend/scripts -> repo root
+const REPO = SCRIPT_DIR;                                     // scripts live at the repo root in this project
 const CACHE = path.join(REPO, '.broker-host');
 
 // --- args -------------------------------------------------------------------
