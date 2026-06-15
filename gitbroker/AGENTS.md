@@ -1,30 +1,46 @@
 # AGENTS.md — gitbroker
 
-**📍 This is the `gitbroker` repo's AGENTS.md** — read it when publishing a repo *through* gitbroker. Not to be confused with `cowork_telegram/AGENTS.md` (the Telegram bridge).
+**📍 This is the `gitbroker` utility's contract** — read it when publishing a repo
+*through* gitbroker.
 
 > Operating contract for an AI agent that publishes a repo through **gitbroker**.
 > Humans should read `README.md` instead — it explains how the broker works,
 > how to install it, and the full security model. This file is the short,
 > imperative version an agent needs at work time.
 
-> **When embedding into a host project — keep this file in its own named
-> folder.** `AGENTS.md` is a magic, auto-discovered filename that agents treat as
-> *whole-project* instructions. If you vendor two utilities that each ship an
-> `AGENTS.md` into the **same** folder, they collide and an agent merges their
-> contracts. The fix: drop this utility under a folder named for it and keep its
-> `AGENTS.md` inside —
->
-> ```
-> tools/
->   gitbroker/AGENTS.md         ← this file
->   telegram-bridge/AGENTS.md   ← the other utility, separate folder
-> ```
->
-> Nested AGENTS.md is nearest-wins: an agent reads only the one closest to what
-> it's touching, never sibling files. **Hard rule: never flatten two utilities
-> into one shared folder** — that is exactly what re-creates the clash. The host's
-> root `AGENTS.md`/`CLAUDE.md` should point explicitly at each path (a vendored
-> `AGENTS.md` in a subfolder is not always auto-discovered).
+## Self-scoping convention (read first when vendoring)
+
+This utility ships as a **single self-named folder** (`gitbroker/`) that contains
+everything it needs: this `AGENTS.md`, `broker-publish.mjs`, and its own local
+`.env` / `.broker-host` cache. To add it to a host project, **copy the whole
+folder in and leave it intact** — don't scatter its files, and never merge it
+with another utility.
+
+Why the folder matters: `AGENTS.md` is a magic, auto-discovered filename that
+agents treat as *whole-project* instructions. If two vendored utilities each drop
+an `AGENTS.md` into the **same** folder, they collide and an agent merges their
+contracts. Keeping each utility in its own named folder prevents that, and the
+pattern scales to any number of utilities:
+
+```
+<host-project>/
+  gitbroker/AGENTS.md        ← this folder
+  <other-utility>/AGENTS.md  ← a different utility, its own named folder
+  <another-utility>/AGENTS.md← …and so on, one folder each
+```
+
+Nested `AGENTS.md` is **nearest-wins**: an agent reads only the one closest to
+the files it's touching, never sibling folders — so any number of self-scoped
+utilities coexist without clashing. **Hard rule: one utility, one folder; never
+flatten two into a shared folder** — that is exactly what re-creates the clash.
+The host's root `AGENTS.md`/`CLAUDE.md` should point explicitly at each folder (a
+vendored `AGENTS.md` in a subfolder is not always auto-discovered).
+
+> **Where this folder's files resolve.** `broker-publish.mjs` reads its
+> `BROKER_SECRET` and caches the broker URL **in this folder** (next to the
+> script). The `--add` / `--rm` paths you pass are always relative to the **git
+> repo root**, which the broker resolves on the host — so the helper works
+> unchanged wherever the folder is dropped.
 
 ## What gitbroker is (one line)
 
@@ -35,10 +51,10 @@ the operator's own credentials.
 
 ## First: which scenario are you in? (setup vs. just publishing)
 
-If this project is **already wired to the broker** — its gitignored `.env` has a
-`BROKER_SECRET` and `broker-publish.mjs` is present — it's set up; skip to *How
-to publish*. Otherwise you're wiring it in, and there are two cases. Detect which
-**before** you clone or install anything:
+If this project is **already wired to the broker** — this folder's gitignored
+`.env` has a `BROKER_SECRET` and `broker-publish.mjs` is present — it's set up;
+skip to *How to publish*. Otherwise you're wiring it in, and there are two cases.
+Detect which **before** you clone or install anything:
 
 **Scenario A — the broker is already installed on this machine.** The common
 case: you're adding a 2nd/3rd project to a broker that already serves others.
@@ -57,17 +73,17 @@ operator, because the sandbox can't reach `~/.config` or `launchd`:
      `{ "name": "<proj>", "path": "<abs host path>", "secret": "<new>" }` to
      `~/.config/gitbroker/registry.json`. **No broker restart** — the registry is
      re-read on every request.
-  2. Put that same secret in **this** project's gitignored `.env` as
+  2. Put that same secret in **this folder's** gitignored `.env` as
      `BROKER_SECRET=…`.
-  3. Copy `broker-publish.mjs` into this repo (adjust its repo-root constant if
-     you place it in a subfolder).
+  3. Copy this `gitbroker/` folder into the project (it carries
+     `broker-publish.mjs` with it).
 
 **Scenario B — fresh install on this machine.** Nothing answers `/health`, no
-registry exists, and the Mac is awake. → Walk the operator through the README's
+registry exists, and the host is awake. → Walk the operator through the README's
 *Install* section first (clone, create registry, launchd), then do Scenario-A
 steps 2–3 to wire in this project.
 
-> If `/health` is silent you cannot tell "not installed" from "Mac asleep / not
+> If `/health` is silent you cannot tell "not installed" from "host asleep / not
 > logged in". **Ask the operator which it is** — don't assume a fresh install and
 > re-clone over a perfectly good one.
 
@@ -78,7 +94,7 @@ You have two equivalent options. Prefer the helper if it's present in the repo.
 ### Option A — the helper (`broker-publish.mjs`)
 
 ```bash
-node broker-publish.mjs \
+node gitbroker/broker-publish.mjs \
   --message "your commit message" \
   --add path/relative/to/repo/root \
   --add another/path \
@@ -86,7 +102,7 @@ node broker-publish.mjs \
 # flags: --allow-empty (commit with nothing staged), --url http://host:port (override)
 ```
 
-It reads `BROKER_SECRET` from the repo's gitignored `.env`, finds the broker
+It reads `BROKER_SECRET` from this folder's gitignored `.env`, finds the broker
 (caching the working URL in `.broker-host`), and POSTs `/publish`. **The secret
 is never printed.**
 
@@ -102,7 +118,7 @@ is never printed.**
 ### Option B — POST directly
 
 ```bash
-SECRET=$(grep '^BROKER_SECRET=' .env | cut -d= -f2-)
+SECRET=$(grep '^BROKER_SECRET=' gitbroker/.env | cut -d= -f2-)
 curl -s -X POST "$BROKER_URL/publish" \
   -H "x-broker-secret: $SECRET" \
   -H "content-type: application/json" \
@@ -121,7 +137,7 @@ nothing was changed or destroyed.
 2. **On any non-zero exit / error, STOP and report. Never claim success you
    didn't get.** A scheduled task should log ERROR and halt.
 3. **Never send, print, log, or commit `BROKER_SECRET` or any token.** It lives
-   only in the gitignored `.env`.
+   only in this folder's gitignored `.env`.
 4. **One secret = one repo.** The secret is the capability; you can only ever
    touch the repo it maps to. Don't try to name or path to another repo.
 5. **Paths are relative to the repo root** in `--add` / `--rm` / `pathspec`.
@@ -130,6 +146,6 @@ nothing was changed or destroyed.
 
 ## Preconditions to check first
 
-- `.env` exists and contains `BROKER_SECRET` (else exit 3).
+- This folder's `.env` exists and contains `BROKER_SECRET` (else exit 3).
 - The broker is reachable (`GET /health` returns `{ok:true}`); if not, the host
   is likely asleep — STOP and report rather than falling back to native git.

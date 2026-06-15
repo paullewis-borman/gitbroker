@@ -24,7 +24,11 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));   // fileURLToPath decodes %20 etc. (e.g. "Schvitz Website")
-const REPO = SCRIPT_DIR;                                     // scripts live at the repo root in this project
+// Self-contained: .env (BROKER_SECRET) and the .broker-host cache live in THIS
+// folder, alongside the script. git pathspecs in --add/--rm are always relative
+// to the git repo root (the broker resolves them there) regardless of where this
+// folder sits, so the helper itself never needs to know the repo root.
+const REPO = SCRIPT_DIR;
 const CACHE = path.join(REPO, '.broker-host');
 
 // --- args -------------------------------------------------------------------

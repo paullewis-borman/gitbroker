@@ -1,6 +1,27 @@
 # gitbroker
 
-> 🤖 **Agents:** your operating contract is [`AGENTS.md`](./AGENTS.md) — read that, not this README. (This README is for humans.)
+> 🤖 **Agents:** your operating contract is [`gitbroker/AGENTS.md`](./gitbroker/AGENTS.md) — read that, not this README. (This README is for humans.)
+
+## Repository layout (self-scoping)
+
+The drop-in client for a host project lives in its own self-named folder:
+
+```
+gitbroker/                     ← repo root: the native host service + human docs
+  broker.mjs                   ·  the service (runs on your host)
+  com.gitbroker.broker.plist   ·  launchd unit
+  registry.example.json
+  README.md                    ·  this file (for humans)
+  gitbroker/                   ← the drop-in client folder (self-contained)
+    AGENTS.md                  ·  the agent's publish contract
+    broker-publish.mjs         ·  the client helper
+    .env                       ·  BROKER_SECRET (gitignored, per-project)
+```
+
+**To wire gitbroker into a project, copy the inner `gitbroker/` folder into it**
+and leave it intact. Because it's a self-named folder carrying its own
+`AGENTS.md`, it never collides with any other vendored utility — see the
+*Self-scoping convention* in [`gitbroker/AGENTS.md`](./gitbroker/AGENTS.md).
 
 A tiny **native git push service** for sandboxed AI agents.
 
@@ -58,8 +79,8 @@ serves two registered projects:
 - **A website with unattended Cowork tasks** ([schvitz.co](https://www.schvitz.co)).
   A Claude Cowork agent runs scheduled tasks against it: a **daily** job that
   writes an AI-insights article, generates an image, and pushes
-  `articles.json` + the image; a **weekly** cleanup that *deletes* orphaned
-  images and trims the article list; and a Telegram bridge. These are precisely
+  `articles.json` + the image; and a **weekly** cleanup that *deletes* orphaned
+  images and trims the article list. These are precisely
   the workloads that break on a bindfs mount — **unattended pushes** and
   **unattended deletes** — and they're exactly what the broker makes reliable.
   The task just calls `POST /publish` (via a thin `broker-publish.mjs` wrapper)
@@ -319,18 +340,18 @@ curl -s -X POST http://172.16.10.254:4747/publish \
 ## Client helper — `broker-publish.mjs`
 
 You don't have to hand-write the `/publish` call in every project. This repo
-ships **`broker-publish.mjs`**, a small zero-dependency Node wrapper (Node 18+,
-uses global `fetch`/`http`) that a project's agent calls to publish itself. It's
-the reference client — the [schvitz.co](https://www.schvitz.co) scheduled tasks
-use a copy of it.
+ships the drop-in **`gitbroker/` folder** containing **`broker-publish.mjs`**, a
+small zero-dependency Node wrapper (Node 18+, uses global `fetch`/`http`) that a
+project's agent calls to publish itself. It's the reference client — the
+[schvitz.co](https://www.schvitz.co) scheduled tasks use a copy of it.
 
-What it does: reads `BROKER_SECRET` from the project's gitignored `.env`, finds
+What it does: reads `BROKER_SECRET` from its own folder's gitignored `.env`, finds
 the broker (probing the host and **caching the working URL in `.broker-host`**
 so later runs are instant), POSTs `/publish`, and exits with a meaningful code.
 The secret is never printed.
 
 ```bash
-node broker-publish.mjs \
+node gitbroker/broker-publish.mjs \
   --message "AI Insights: <title>" \
   --add data/articles.json \
   --add public/images/foo.webp \
@@ -345,22 +366,23 @@ node broker-publish.mjs \
 | `2` | could not reach the broker (host asleep/offline) |
 | `3` | bad usage or no `BROKER_SECRET` in `.env` |
 
-**To wire it into a new project:** copy `broker-publish.mjs` into the project,
-register the project in the broker registry, and put that project's
-`BROKER_SECRET` in its `.env` (see *Adding a project* below). By convention the
-helper resolves the repo root two levels up from its own location
-(`<repo>/backend/scripts/broker-publish.mjs`); adjust that path constant if you
-place it elsewhere.
+**To wire it into a new project:** copy the whole `gitbroker/` folder into the
+project, register the project in the broker registry, and put that project's
+`BROKER_SECRET` in the folder's `.env` (see *Adding a project* below). The helper
+reads `.env`/`.broker-host` from its **own folder**, and `--add`/`--rm` paths are
+relative to the **git repo root** (the broker resolves them on the host), so it
+works wherever the folder is dropped.
 
-> **Note on `AGENTS.md`.** This repo also ships an **`AGENTS.md`** — a short,
-> imperative publish contract written for an *AI agent* (how to call the helper,
-> what the exit codes mean, and the hard rules: never run native git on the
-> mount, stop on any non-zero exit, never expose the secret). The README you're
-> reading is for *humans*; `AGENTS.md` is for the agent. **What to do with it:**
-> when you copy `broker-publish.mjs` into a new project, copy `AGENTS.md`
-> alongside it (or fold its rules into that project's own `CLAUDE.md` /
-> agent-rules file) so the project's agent reads the publish contract before it
-> ever touches git. Many agent tools auto-discover a top-level `AGENTS.md`.
+> **Note on `AGENTS.md`.** The drop-in `gitbroker/` folder also carries an
+> **`AGENTS.md`** — a short, imperative publish contract written for an *AI
+> agent* (how to call the helper, what the exit codes mean, and the hard rules:
+> never run native git on the mount, stop on any non-zero exit, never expose the
+> secret). The README you're reading is for *humans*; `AGENTS.md` is for the
+> agent. Because it lives **inside the self-named `gitbroker/` folder**, copying
+> that one folder into a project carries the contract with it and never collides
+> with another vendored utility's `AGENTS.md` (see the *Self-scoping convention*
+> in `gitbroker/AGENTS.md`). Point the project's root `CLAUDE.md`/`AGENTS.md` at
+> `gitbroker/AGENTS.md` so the agent reads the contract before it touches git.
 
 ## Adding a project
 
