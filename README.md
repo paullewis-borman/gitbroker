@@ -15,6 +15,7 @@ gitbroker/                     ← repo root: the native host service + human do
   gitbroker/                   ← the drop-in client folder (self-contained)
     AGENTS.md                  ·  the agent's publish contract
     broker-publish.mjs         ·  the client helper
+    .env.example               ·  copy to .env, set BROKER_SECRET
     .env                       ·  BROKER_SECRET (gitignored, per-project)
 ```
 
