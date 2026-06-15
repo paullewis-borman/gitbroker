@@ -32,8 +32,8 @@
     <!-- ProgramArguments[0] MUST be your absolute node path (readlink -f $(which node)). -->
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/Cellar/node/23.3.0/bin/node</string>
-        <string>/Users/plb/Documents/NewRepo/gitbroker/broker.mjs</string>
+        <string>/ABSOLUTE/PATH/TO/node</string>
+        <string>/ABSOLUTE/PATH/TO/gitbroker/broker.mjs</string>
     </array>
 
     <!-- Explicit PATH so the broker's `git` subprocess resolves. Add your node
@@ -53,8 +53,8 @@
 
     <!-- Logs OUTSIDE the TCC-protected repo. -->
     <key>StandardOutPath</key>
-    <string>/Users/plb/Library/Logs/gitbroker.log</string>
+    <string>/ABSOLUTE/PATH/TO/YOUR/HOME/Library/Logs/gitbroker.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/plb/Library/Logs/gitbroker.log</string>
+    <string>/ABSOLUTE/PATH/TO/YOUR/HOME/Library/Logs/gitbroker.log</string>
 </dict>
 </plist>

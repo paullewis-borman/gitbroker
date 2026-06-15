@@ -237,8 +237,10 @@ node broker.mjs
 
 ### 2b. Run it always (launchd)
 
-Edit the two absolute paths in `com.gitbroker.broker.plist` to your clone
-location, then:
+Replace the `/ABSOLUTE/PATH/TO/...` placeholders in
+`com.gitbroker.broker.plist` with your own paths — your `node` binary
+(`readlink -f "$(which node)"`), this repo's `broker.mjs`, and a writable log
+path in your home `Library/Logs` — then:
 
 ```bash
 cp com.gitbroker.broker.plist ~/Library/LaunchAgents/
