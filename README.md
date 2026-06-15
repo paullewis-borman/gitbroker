@@ -1,5 +1,7 @@
 # gitbroker
 
+> 🤖 **Agents:** your operating contract is [`AGENTS.md`](./AGENTS.md) — read that, not this README. (This README is for humans.)
+
 A tiny **native git push service** for sandboxed AI agents.
 
 It lets an agent running inside a sandbox (e.g. Claude Cowork) run `git add` /

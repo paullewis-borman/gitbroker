@@ -7,6 +7,25 @@
 > how to install it, and the full security model. This file is the short,
 > imperative version an agent needs at work time.
 
+> **When embedding into a host project — keep this file in its own named
+> folder.** `AGENTS.md` is a magic, auto-discovered filename that agents treat as
+> *whole-project* instructions. If you vendor two utilities that each ship an
+> `AGENTS.md` into the **same** folder, they collide and an agent merges their
+> contracts. The fix: drop this utility under a folder named for it and keep its
+> `AGENTS.md` inside —
+>
+> ```
+> tools/
+>   gitbroker/AGENTS.md         ← this file
+>   telegram-bridge/AGENTS.md   ← the other utility, separate folder
+> ```
+>
+> Nested AGENTS.md is nearest-wins: an agent reads only the one closest to what
+> it's touching, never sibling files. **Hard rule: never flatten two utilities
+> into one shared folder** — that is exactly what re-creates the clash. The host's
+> root `AGENTS.md`/`CLAUDE.md` should point explicitly at each path (a vendored
+> `AGENTS.md` in a subfolder is not always auto-discovered).
+
 ## What gitbroker is (one line)
 
 A native git push service on the operator's host. You (an agent in a sandbox)
