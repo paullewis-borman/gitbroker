@@ -268,17 +268,30 @@ an agent could call it.
 
 ## Reaching the broker from a sandbox
 
-The broker must listen on an interface the sandbox can reach — **loopback won't
-work**, because the sandbox reaches the host over a real network interface, not
-`127.0.0.1`. The default `GITBROKER_HOST=0.0.0.0` covers this.
+The URL to use depends on **where the calling code runs**:
 
-From inside the sandbox, find the host's address (often the VM's gateway, or a
-sibling address on the same subnet) and probe `/health`:
+| Caller context | Broker URL |
+|---|---|
+| Cowork scheduled task (container/VM) | `http://172.16.10.254:4747` (or your VM's host gateway) |
+| Native Mac process (e.g. Telegram watchdog → `claude -p`) | `http://localhost:4747` |
+
+**From inside a container/VM** loopback won't work — the sandbox reaches the
+host over a real network interface, not `127.0.0.1`. Find the host's address
+(often the VM's gateway or `.254` on the sandbox subnet) and probe `/health`:
 
 ```bash
 # example: the host turned out to be 172.16.10.254 on one Cowork VM
 curl -s http://172.16.10.254:4747/health
 ```
+
+**From a native Mac process** (e.g. `claude -p` spawned by a launchd watchdog),
+`localhost:4747` works directly — there is no container boundary. Using
+`172.16.10.254` from a native process will time out.
+
+> **`.broker-host` cache warning.** `broker-publish.mjs` caches the working URL
+> in `.broker-host`. If a scheduled task wrote it (`172.16.10.254`) and a native
+> process then reads it, the cached URL will time out. Pass `--url` explicitly or
+> delete `.broker-host` and let the script rediscover.
 
 Keep the broker on a **host-only / private** network so it isn't exposed to your
 LAN or the internet. The shared secret is the only auth.
